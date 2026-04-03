@@ -4,31 +4,57 @@
     <meta charset="UTF-8">
     <title>Elsevier 논문 검색기</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        .container { max-width: 800px; margin: auto; }
-        .input-group { margin-bottom: 20px; }
-        input { padding: 10px; width: 70%; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 10px 20px; background: #007396; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        #result-count { font-size: 1.2em; font-weight: bold; color: #d32f2f; margin: 20px 0; }
-        .paper-item { border-bottom: 1px solid #eee; padding: 10px 0; }
-        .paper-title { font-weight: bold; color: #1a0dab; }
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 30px; background-color: #f0f2f5; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #005a75; text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
+        
+        .setup-section { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #e9ecef; }
+        .input-label { font-weight: bold; display: block; margin-bottom: 8px; color: #495057; }
+        
+        .input-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        input { flex: 1; padding: 12px; border: 1px solid #ced4da; border-radius: 6px; outline: none; }
+        input:focus { border-color: #007396; box-shadow: 0 0 5px rgba(0,115,150,0.2); }
+        
+        /* 버튼 스타일 */
+        .btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-show { background: #6c757d; color: white; min-width: 80px; }
+        .btn-search { background: #007396; color: white; width: 100%; font-size: 1.1em; }
+        .btn:hover { opacity: 0.9; }
+        
+        #result-count { margin-top: 25px; padding: 15px; border-radius: 8px; font-weight: bold; display: none; }
+        .success { background: #e7f3ff; color: #0056b3; border: 1px solid #b8daff; }
+        .error { background: #fff5f5; color: #e03131; border: 1px solid #ffc9c9; }
+        
+        .paper-list { margin-top: 20px; }
+        .paper-card { padding: 20px; border-bottom: 1px solid #eee; transition: background 0.2s; }
+        .paper-card:hover { background: #f8fbff; }
+        .paper-title { font-size: 1.15em; color: #0056b3; text-decoration: none; display: block; margin-bottom: 8px; }
+        .paper-meta { font-size: 0.9em; color: #666; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>📄 Elsevier 논문 검색 (Scopus API)</h2>
-        <div class="input-group">
-            <input type="password" id="apiKey" placeholder="Elsevier API Key를 입력하세요">
-            <input type="text" id="keyword" placeholder="검색어 입력">
-            <button id="searchBtn">검색</button>
-        </div>
 
-        <div id="result-count"></div>
+<div class="container">
+    <h2>🔬 연구용 논문 검색 시스템</h2>
+
+    <div class="setup-section">
+        <label class="input-label">1. Elsevier API Key 설정</label>
+        <div class="input-row">
+            <input type="password" id="apiKey" placeholder="여기에 API 키를 입력하세요">
+            <button class="btn btn-show" id="toggleKeyBtn">보기</button>
+        </div>
         
-        <div id="paper-list"></div>
+        <label class="input-label">2. 논문 키워드 검색</label>
+        <div class="input-row">
+            <input type="text" id="keyword" placeholder="주제나 제목 키워드 (예: Smart Grid, AI Medicine)">
+        </div>
+        <button class="btn btn-search" id="searchBtn">논문 찾기 시작</button>
     </div>
 
-    <script src="script.js"></script>
+    <div id="result-count"></div>
+    <div id="paper-list" class="paper-list"></div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
