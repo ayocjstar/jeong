@@ -1,86 +1,100 @@
+let currentPage = 0;       // 현재 페이지 (0부터 시작)
+const itemsPerPage = 25;    // 한 페이지당 보여줄 논문 수
+let currentKeyword = "";    // 검색어 유지용
+
 const apiKeyInput = document.getElementById('apiKey');
-const toggleKeyBtn = document.getElementById('toggleKeyBtn');
 const searchBtn = document.getElementById('searchBtn');
 const keywordInput = document.getElementById('keyword');
 const countDiv = document.getElementById('result-count');
 const listDiv = document.getElementById('paper-list');
+const pagTop = document.getElementById('pagination-top');
+const pagBottom = document.getElementById('pagination-bottom');
 
-// [기능 1] 페이지 로드 시 저장된 키 불러오기
-window.onload = () => {
-    const savedKey = localStorage.getItem('elsevier_api_key');
-    if (savedKey) apiKeyInput.value = savedKey;
-};
-
-// [기능 2] API 키 보기/숨기기 토글
-toggleKeyBtn.addEventListener('click', () => {
-    if (apiKeyInput.type === 'password') {
-        apiKeyInput.type = 'text';
-        toggleKeyBtn.textContent = '숨기기';
-    } else {
-        apiKeyInput.type = 'password';
-        toggleKeyBtn.textContent = '보기';
-    }
+// 검색 버튼 클릭 시 (첫 페이지부터 시작)
+searchBtn.addEventListener('click', () => {
+    currentPage = 0;
+    currentKeyword = keywordInput.value.trim();
+    fetchPapers();
 });
 
-// [기능 3] 논문 검색 실행
-searchBtn.addEventListener('click', async () => {
+// 실제 API 호출 함수
+async function fetchPapers() {
     const apiKey = apiKeyInput.value.trim();
-    const keyword = keywordInput.value.trim();
-
-    if (!apiKey || !keyword) {
-        alert('API 키와 검색어를 모두 입력해 주세요!');
+    if (!apiKey || !currentKeyword) {
+        alert('API 키와 검색어를 확인해 주세요!');
         return;
     }
 
-    // API 키 로컬 저장
     localStorage.setItem('elsevier_api_key', apiKey);
-
-    // UI 상태 업데이트
-    countDiv.style.display = 'block';
-    countDiv.className = 'success';
-    countDiv.textContent = '⏳ 데이터 분석 중... 잠시만 기다려 주세요.';
-    listDiv.innerHTML = '';
+    
+    // UI 초기화 및 로딩 표시
+    listDiv.innerHTML = '⏳ 데이터를 불러오는 중입니다...';
     searchBtn.disabled = true;
+    [pagTop, pagBottom].forEach(el => el.innerHTML = '');
 
     try {
-        const url = `https://api.elsevier.com/content/search/scopus?query=TITLE-ABS-KEY(${encodeURIComponent(keyword)})&apiKey=${apiKey}&count=25`;
+        // start 파라미터가 페이징의 핵심입니다 (0, 25, 50...)
+        const start = currentPage * itemsPerPage;
+        const url = `https://api.elsevier.com/content/search/scopus?query=TITLE-ABS-KEY(${encodeURIComponent(currentKeyword)})&apiKey=${apiKey}&count=${itemsPerPage}&start=${start}`;
         
         const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        
-        if (!response.ok) throw new Error(response.status === 401 ? "API 키가 올바르지 않습니다." : "서버 통신 에러");
+        if (!response.ok) throw new Error("데이터를 가져오지 못했습니다.");
 
         const data = await response.json();
-        const total = data['search-results']['opensearch:totalResults'];
-        const entries = data['search-results']['entry'];
+        const results = data['search-results'];
+        const total = parseInt(results['opensearch:totalResults']);
+        const entries = results['entry'];
 
-        countDiv.innerHTML = `✅ "${keyword}" 관련 논문이 총 <strong>${Number(total).toLocaleString()}</strong>건 발견되었습니다.`;
+        // 결과 개수 및 정보 표시
+        countDiv.style.display = 'block';
+        countDiv.className = 'success';
+        countDiv.innerHTML = `✅ <strong>"${currentKeyword}"</strong> 결과: 총 ${total.toLocaleString()}건 (현재 ${currentPage + 1}페이지)`;
 
-        if (entries && entries.length > 0 && !entries[0].error) {
-            entries.forEach(item => {
-                const card = document.createElement('div');
-                card.className = 'paper-card';
-                
-                const title = item['dc:title'];
-                const author = item['dc:creator'] || '알 수 없는 저자';
-                const journal = item['prism:publicationName'] || '학술지 정보 없음';
-                const date = item['prism:coverDate'];
-                const doi = item['prism:doi'];
+        // 논문 리스트 렌더링
+        renderList(entries);
 
-                card.innerHTML = `
-                    <div class="paper-title">${title}</div>
-                    <div class="paper-meta">👤 ${author} | 📅 ${date} | 📖 ${journal}</div>
-                    ${doi ? `<a href="https://doi.org/${doi}" target="_blank" style="font-size:0.8em; color:#007396; margin-top:10px; display:inline-block;">[원문 보기]</a>` : ''}
-                `;
-                listDiv.appendChild(card);
-            });
-        } else {
-            listDiv.innerHTML = '<p style="text-align:center; color:#666;">상세 검색 결과가 없습니다.</p>';
-        }
+        // 페이징 버튼 생성
+        renderPagination(total);
 
     } catch (err) {
         countDiv.className = 'error';
         countDiv.textContent = `❌ 오류: ${err.message}`;
+        listDiv.innerHTML = '';
     } finally {
         searchBtn.disabled = false;
+        window.scrollTo(0, 0); // 페이지 상단으로 이동
     }
-});
+}
+
+function renderList(entries) {
+    listDiv.innerHTML = '';
+    if (entries && entries.length > 0 && !entries[0].error) {
+        entries.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'paper-card';
+            card.innerHTML = `
+                <div class="paper-title">${item['dc:title']}</div>
+                <div class="paper-meta">👤 ${item['dc:creator'] || '저자 미상'} | 📅 ${item['prism:coverDate']}</div>
+                ${item['prism:doi'] ? `<a href="https://doi.org/${item['prism:doi']}" target="_blank" class="doi-link">[원문 보기]</a>` : ''}
+            `;
+            listDiv.appendChild(card);
+        });
+    } else {
+        listDiv.innerHTML = '<p>검색 결과가 없습니다.</p>';
+    }
+}
+
+function renderPagination(total) {
+    const maxPage = Math.ceil(total / itemsPerPage);
+    const html = `
+        <button class="btn-page" id="prevBtn" ${currentPage === 0 ? 'disabled' : ''}>이전</button>
+        <span class="page-info">${currentPage + 1} / ${maxPage}</span>
+        <button class="btn-page" id="nextBtn" ${currentPage >= maxPage - 1 ? 'disabled' : ''}>다음</button>
+    `;
+    
+    [pagTop, pagBottom].forEach(el => {
+        el.innerHTML = html;
+        el.querySelector('#prevBtn').onclick = () => { currentPage--; fetchPapers(); };
+        el.querySelector('#nextBtn').onclick = () => { currentPage++; fetchPapers(); };
+    });
+}
