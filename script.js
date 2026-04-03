@@ -1,68 +1,88 @@
-let currentPage = 0;       // 현재 페이지 (0부터 시작)
-const itemsPerPage = 25;    // 한 페이지당 보여줄 논문 수
-let currentKeyword = "";    // 검색어 유지용
+// 전역 변수 설정
+let currentPage = 0;
+const itemsPerPage = 25;
+let currentKeyword = "";
 
+// 요소 가져오기
 const apiKeyInput = document.getElementById('apiKey');
+const eyeBtn = document.getElementById('eyeBtn');
 const searchBtn = document.getElementById('searchBtn');
 const keywordInput = document.getElementById('keyword');
 const countDiv = document.getElementById('result-count');
 const listDiv = document.getElementById('paper-list');
-const pagTop = document.getElementById('pagination-top');
-const pagBottom = document.getElementById('pagination-bottom');
+const pagT = document.getElementById('pagination-top');
+const pagB = document.getElementById('pagination-bottom');
 
-// 검색 버튼 클릭 시 (첫 페이지부터 시작)
-searchBtn.addEventListener('click', () => {
-    currentPage = 0;
-    currentKeyword = keywordInput.value.trim();
-    fetchPapers();
+// [1] 저장된 키 불러오기
+window.onload = () => {
+    const savedKey = localStorage.getItem('elsevier_api_key');
+    if (savedKey) apiKeyInput.value = savedKey;
+};
+
+// [2] 눈 버튼 기능 (클릭 시 보기/숨기기 토글)
+eyeBtn.addEventListener('click', (e) => {
+    e.preventDefault(); // 폼 제출 방지
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        eyeBtn.textContent = '🔒'; // 가릴 때는 자물쇠 모양으로 변경 가능
+    } else {
+        apiKeyInput.type = 'password';
+        eyeBtn.textContent = '👁️';
+    }
 });
 
-// 실제 API 호출 함수
-async function fetchPapers() {
+// [3] 검색 시작
+searchBtn.addEventListener('click', () => {
+    currentKeyword = keywordInput.value.trim();
+    if (!currentKeyword) {
+        alert("검색어를 입력해 주세요.");
+        return;
+    }
+    currentPage = 0; // 새 검색 시 첫 페이지로
+    fetchData();
+});
+
+async function fetchData() {
     const apiKey = apiKeyInput.value.trim();
-    if (!apiKey || !currentKeyword) {
-        alert('API 키와 검색어를 확인해 주세요!');
+    if (!apiKey) {
+        alert("API 키를 입력해 주세요.");
         return;
     }
 
+    // 키 저장
     localStorage.setItem('elsevier_api_key', apiKey);
-    
-    // UI 초기화 및 로딩 표시
-    listDiv.innerHTML = '⏳ 데이터를 불러오는 중입니다...';
+
+    // 상태 초기화
     searchBtn.disabled = true;
-    [pagTop, pagBottom].forEach(el => el.innerHTML = '');
+    listDiv.innerHTML = '<p style="text-align:center;">데이터를 불러오는 중입니다...</p>';
+    [pagT, pagB].forEach(p => p.innerHTML = '');
 
     try {
-        // start 파라미터가 페이징의 핵심입니다 (0, 25, 50...)
         const start = currentPage * itemsPerPage;
         const url = `https://api.elsevier.com/content/search/scopus?query=TITLE-ABS-KEY(${encodeURIComponent(currentKeyword)})&apiKey=${apiKey}&count=${itemsPerPage}&start=${start}`;
         
         const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        if (!response.ok) throw new Error("데이터를 가져오지 못했습니다.");
+        if (!response.ok) throw new Error("API 응답 에러 (키를 확인하세요)");
 
         const data = await response.json();
         const results = data['search-results'];
         const total = parseInt(results['opensearch:totalResults']);
         const entries = results['entry'];
 
-        // 결과 개수 및 정보 표시
+        // 결과 표시
         countDiv.style.display = 'block';
-        countDiv.className = 'success';
-        countDiv.innerHTML = `✅ <strong>"${currentKeyword}"</strong> 결과: 총 ${total.toLocaleString()}건 (현재 ${currentPage + 1}페이지)`;
+        countDiv.innerHTML = `✅ "${currentKeyword}" 결과: 총 ${total.toLocaleString()}건 (${currentPage + 1}페이지)`;
 
-        // 논문 리스트 렌더링
         renderList(entries);
-
-        // 페이징 버튼 생성
         renderPagination(total);
 
     } catch (err) {
-        countDiv.className = 'error';
-        countDiv.textContent = `❌ 오류: ${err.message}`;
+        countDiv.style.display = 'block';
+        countDiv.innerHTML = `❌ 오류: ${err.message}`;
         listDiv.innerHTML = '';
     } finally {
         searchBtn.disabled = false;
-        window.scrollTo(0, 0); // 페이지 상단으로 이동
+        window.scrollTo(0, 0);
     }
 }
 
@@ -72,10 +92,10 @@ function renderList(entries) {
         entries.forEach(item => {
             const card = document.createElement('div');
             card.className = 'paper-card';
+            const doi = item['prism:doi'];
             card.innerHTML = `
-                <div class="paper-title">${item['dc:title']}</div>
-                <div class="paper-meta">👤 ${item['dc:creator'] || '저자 미상'} | 📅 ${item['prism:coverDate']}</div>
-                ${item['prism:doi'] ? `<a href="https://doi.org/${item['prism:doi']}" target="_blank" class="doi-link">[원문 보기]</a>` : ''}
+                <a href="${doi ? 'https://doi.org/' + doi : '#'}" target="_blank" class="paper-title">${item['dc:title']}</a>
+                <div style="font-size:0.85em; color:#666;">👤 ${item['dc:creator'] || '저자 미상'} | 📅 ${item['prism:coverDate']}</div>
             `;
             listDiv.appendChild(card);
         });
@@ -86,15 +106,17 @@ function renderList(entries) {
 
 function renderPagination(total) {
     const maxPage = Math.ceil(total / itemsPerPage);
-    const html = `
-        <button class="btn-page" id="prevBtn" ${currentPage === 0 ? 'disabled' : ''}>이전</button>
-        <span class="page-info">${currentPage + 1} / ${maxPage}</span>
-        <button class="btn-page" id="nextBtn" ${currentPage >= maxPage - 1 ? 'disabled' : ''}>다음</button>
+    if (maxPage <= 1) return;
+
+    const nav = `
+        <button class="btn-page" id="prev" ${currentPage === 0 ? 'disabled' : ''}>이전</button>
+        <span><strong>${currentPage + 1}</strong> / ${maxPage}</span>
+        <button class="btn-page" id="next" ${currentPage >= maxPage - 1 ? 'disabled' : ''}>다음</button>
     `;
-    
-    [pagTop, pagBottom].forEach(el => {
-        el.innerHTML = html;
-        el.querySelector('#prevBtn').onclick = () => { currentPage--; fetchPapers(); };
-        el.querySelector('#nextBtn').onclick = () => { currentPage++; fetchPapers(); };
+
+    [pagT, pagB].forEach(el => {
+        el.innerHTML = nav;
+        el.querySelector('#prev').onclick = () => { currentPage--; fetchData(); };
+        el.querySelector('#next').onclick = () => { currentPage++; fetchData(); };
     });
 }
