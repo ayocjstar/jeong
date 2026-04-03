@@ -1,90 +1,85 @@
+const apiKeyInput = document.getElementById('apiKey');
+const toggleKeyBtn = document.getElementById('toggleKeyBtn');
 const searchBtn = document.getElementById('searchBtn');
-const keyInput = document.getElementById('apiKey');
 const keywordInput = document.getElementById('keyword');
-const countDisplay = document.getElementById('result-count');
-const listDisplay = document.getElementById('paper-list');
+const countDiv = document.getElementById('result-count');
+const listDiv = document.getElementById('paper-list');
 
-// 1. 페이지 로드 시 기존에 저장된 API 키가 있으면 불러오기
+// [기능 1] 페이지 로드 시 저장된 키 불러오기
 window.onload = () => {
     const savedKey = localStorage.getItem('elsevier_api_key');
-    if (savedKey) {
-        keyInput.value = savedKey;
-        console.log("기존 API 키를 불러왔습니다.");
-    }
+    if (savedKey) apiKeyInput.value = savedKey;
 };
 
+// [기능 2] API 키 보기/숨기기 토글
+toggleKeyBtn.addEventListener('click', () => {
+    if (apiKeyInput.type === 'password') {
+        apiKeyInput.type = 'text';
+        toggleKeyBtn.textContent = '숨기기';
+    } else {
+        apiKeyInput.type = 'password';
+        toggleKeyBtn.textContent = '보기';
+    }
+});
+
+// [기능 3] 논문 검색 실행
 searchBtn.addEventListener('click', async () => {
-    const apiKey = keyInput.value.trim();
+    const apiKey = apiKeyInput.value.trim();
     const keyword = keywordInput.value.trim();
 
-    if (!apiKey) {
-        alert('API Key를 입력해주세요! (Elsevier 사이트에서 발급받은 키)');
-        return;
-    }
-    if (!keyword) {
-        alert('검색할 키워드를 입력해주세요!');
+    if (!apiKey || !keyword) {
+        alert('API 키와 검색어를 모두 입력해 주세요!');
         return;
     }
 
-    // 2. 입력한 API 키를 브라우저에 저장 (다음번 접속 시 편리함)
+    // API 키 로컬 저장
     localStorage.setItem('elsevier_api_key', apiKey);
 
-    // UI 초기화
-    countDisplay.style.display = 'block';
-    countDisplay.textContent = '🔍 Elsevier 서버에서 데이터를 가져오는 중...';
-    listDisplay.innerHTML = '';
+    // UI 상태 업데이트
+    countDiv.style.display = 'block';
+    countDiv.className = 'success';
+    countDiv.textContent = '⏳ 데이터 분석 중... 잠시만 기다려 주세요.';
+    listDiv.innerHTML = '';
     searchBtn.disabled = true;
 
     try {
-        // Scopus Search API 호출
         const url = `https://api.elsevier.com/content/search/scopus?query=TITLE-ABS-KEY(${encodeURIComponent(keyword)})&apiKey=${apiKey}&count=25`;
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json' }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401) throw new Error("API 키가 올바르지 않거나 승인되지 않았습니다.");
-            throw new Error(`에러 발생! (코드: ${response.status})`);
-        }
+        
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        
+        if (!response.ok) throw new Error(response.status === 401 ? "API 키가 올바르지 않습니다." : "서버 통신 에러");
 
         const data = await response.json();
-        const results = data['search-results'];
-        const totalResults = results['opensearch:totalResults'];
-        const entries = results['entry'];
+        const total = data['search-results']['opensearch:totalResults'];
+        const entries = data['search-results']['entry'];
 
-        // 검색 결과 개수 표시
-        countDisplay.innerHTML = `✅ <strong>"${keyword}"</strong> 검색 결과: 총 <strong>${Number(totalResults).toLocaleString()}</strong>개의 논문을 찾았습니다.`;
+        countDiv.innerHTML = `✅ "${keyword}" 관련 논문이 총 <strong>${Number(total).toLocaleString()}</strong>건 발견되었습니다.`;
 
-        // 논문 리스트 생성
         if (entries && entries.length > 0 && !entries[0].error) {
-            entries.forEach(entry => {
-                const item = document.createElement('div');
-                item.className = 'paper-item';
+            entries.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'paper-card';
                 
-                const title = entry['dc:title'];
-                const author = entry['dc:creator'] || '저자 정보 없음';
-                const date = entry['prism:coverDate'];
-                const journal = entry['prism:publicationName'] || '학술지 정보 없음';
-                const doi = entry['prism:doi'] || '';
+                const title = item['dc:title'];
+                const author = item['dc:creator'] || '알 수 없는 저자';
+                const journal = item['prism:publicationName'] || '학술지 정보 없음';
+                const date = item['prism:coverDate'];
+                const doi = item['prism:doi'];
 
-                item.innerHTML = `
+                card.innerHTML = `
                     <div class="paper-title">${title}</div>
-                    <div class="paper-info">
-                        👤 ${author} | 📅 ${date} | 📖 ${journal}
-                    </div>
-                    ${doi ? `<div style="margin-top:5px;"><a href="https://doi.org/${doi}" target="_blank" style="color:#007396; font-size:0.85em;">원문 보기 (DOI)</a></div>` : ''}
+                    <div class="paper-meta">👤 ${author} | 📅 ${date} | 📖 ${journal}</div>
+                    ${doi ? `<a href="https://doi.org/${doi}" target="_blank" style="font-size:0.8em; color:#007396; margin-top:10px; display:inline-block;">[원문 보기]</a>` : ''}
                 `;
-                listDisplay.appendChild(item);
+                listDiv.appendChild(card);
             });
         } else {
-            listDisplay.textContent = '검색 결과가 없습니다. 키워드를 변경해 보세요.';
+            listDiv.innerHTML = '<p style="text-align:center; color:#666;">상세 검색 결과가 없습니다.</p>';
         }
 
-    } catch (error) {
-        console.error('오류:', error);
-        countDisplay.innerHTML = `❌ 오류: ${error.message}`;
+    } catch (err) {
+        countDiv.className = 'error';
+        countDiv.textContent = `❌ 오류: ${err.message}`;
     } finally {
         searchBtn.disabled = false;
     }
