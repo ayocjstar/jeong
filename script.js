@@ -1,296 +1,331 @@
 // [전역 변수 설정]
-let currentPage = 0;
-const itemsPerPage = 10;
 let currentKeyword = "";
+let accumulatedPapers = new Map(); 
 
-// [요소 가져오기]
+// [요소 가져오기] - 안전하게 가져오기 위해 함수로 감싸거나 null 체크를 합니다.
 const apiKeyInput = document.getElementById('apiKey');
 const eyeBtn = document.getElementById('eyeBtn');
 const searchBtn = document.getElementById('searchBtn');
 const keywordInput = document.getElementById('keyword');
 const countDiv = document.getElementById('result-count');
 const listDiv = document.getElementById('paper-list');
-const pagT = document.getElementById('pagination-top');
-const pagB = document.getElementById('pagination-bottom');
+const insightDiv = document.getElementById('ai-intelligent-insight');
 
-// [1] 페이지 로드 시 브라우저 금고(localStorage)에서 키 불러오기
+// [1] 페이지 로드 시 API 키 불러오기
 window.onload = () => {
     const savedKey = localStorage.getItem('elsevier_api_key');
-    if (savedKey) {
-        apiKeyInput.value = savedKey;
-    }
+    if (savedKey && apiKeyInput) apiKeyInput.value = savedKey;
 };
 
-// [2] 눈 버튼 기능 (API 키 보기/숨기기 토글)
-eyeBtn.addEventListener('click', (e) => {
-    e.preventDefault(); 
-    if (apiKeyInput.type === 'password') {
-        apiKeyInput.type = 'text';
-        eyeBtn.textContent = '🔒'; 
-    } else {
-        apiKeyInput.type = 'password';
-        eyeBtn.textContent = '👁️';
-    }
-});
-
-// [3] 검색 버튼 클릭 이벤트
-searchBtn.addEventListener('click', () => {
-    currentKeyword = keywordInput.value.trim();
-    if (!currentKeyword) {
-        alert("리즈, 검색어를 입력해 줘야 보물을 찾으러 갈 수 있어! 🧐");
-        return;
-    }
-    currentPage = 0; // 새로운 검색은 항상 1페이지부터
-    fetchData();
-});
-
-// [4] 실제 데이터 가져오기 함수
-async function fetchData() {
-    const apiKey = apiKeyInput.value.trim();
-    const keyword = keywordInput.value.trim(); // 원래 입력값
-    const startYear = document.getElementById('startYear').value;
-    const endYear = document.getElementById('endYear').value;
-
-    // 1. 필수 체크
-    if (!apiKey) {
-        alert("어라? 리즈, API 키가 배고픈가 봐요. 다시 확인해줄래? 🧐");
-        return;
-    }
-    if (!keyword) {
-        alert("리즈, 검색어를 입력해 줘야 보물을 찾으러 갈 수 있어! 🧐");
-        return;
-    }
-
-    // 2. [중요] 키워드 포맷팅 (이 줄이 빠져서 에러가 났을 거예요!)
-    // 띄어쓰기를 기준으로 단어들을 분리한 뒤 ' AND '로 연결해줍니다.
-    const formattedKeyword = keyword.split(' ').filter(x => x).join(' AND ');
-
-    // 3. 날짜 쿼리 생성
-    let dateQuery = "";
-    if (startYear && endYear) {
-        dateQuery = ` AND PUBYEAR AFT ${startYear - 1} AND PUBYEAR BEF ${endYear + 1}`;
-    } else if (startYear) {
-        dateQuery = ` AND PUBYEAR AFT ${startYear - 1}`;
-    } else if (endYear) {
-        dateQuery = ` AND PUBYEAR BEF ${endYear + 1}`;
-    }
-
-    // 입력한 키를 브라우저 금고에 저장
-    localStorage.setItem('elsevier_api_key', apiKey);
-
-    // UI 상태 초기화
-    searchBtn.disabled = true;
-    listDiv.innerHTML = '<p style="text-align:center; font-size:1.1em; color:#d63384; padding:40px;">리즈를 위해 열심히 도서관 뒤지는 중... 🏃‍♀️💨</p>';
-    [pagT, pagB].forEach(p => p.innerHTML = '');
-    countDiv.style.display = 'none';
-
-    try {
-        const start = currentPage * itemsPerPage;
-        // 4. [수정] URL 생성 (view=COMPLETE는 안정성을 위해 일단 제거했습니다)
-        const params = new URLSearchParams({
-                query: `TITLE-ABS-KEY(${formattedKeyword})${dateQuery}`,
-                apiKey: apiKey,
-                count: itemsPerPage,
-                start: start,
-                sort: '-coverDate'
-            });
-        const url = `https://api.elsevier.com/content/search/scopus?${params.toString()}`;
-        
-        // 5. [중요] fetch 실행 줄이 빠져있었습니다!
-        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
-        
-        if (!response.ok) {
-            throw new Error("API 응답 에러");
-        }
-
-        const data = await response.json();
-        const results = data['search-results'];
-        const total = parseInt(results['opensearch:totalResults'] || "0");
-        const entries = results['entry'];
-
-        countDiv.style.display = 'block';
-        
-        if (total === 0) {
-            countDiv.style.background = '#f8f9fa';
-            countDiv.style.color = '#6c757d';
-            countDiv.style.border = '1px solid #ddd';
-            countDiv.innerHTML = `😢 <strong>미안해 리즈, 관련 보물을 찾지 못했어...</strong> 다시 한번 검색해줄래?`;
-            listDiv.innerHTML = '<p style="text-align:center; padding:50px; color:#999;">검색 결과가 없어요. 키워드를 조금 더 넓게 잡아볼까요? 🧐</p>';
-        } else {
-            countDiv.style.background = '#fff0f6'; 
-            countDiv.style.color = '#d63384';
-            countDiv.style.border = '1px solid #ffc9c9';
-            countDiv.innerHTML = `✨ <strong>리즈님, 요청하신 보물들을 찾았습니다!</strong> (총 ${total.toLocaleString()}건 / ${currentPage + 1}페이지)`;
-            
-            renderList(entries); // 데이터가 있으면 테이블 그리기
-        }
-
-        renderPagination(total); // 페이지 버튼 생성
-
-    } catch (err) {
-        console.error(err);
-        countDiv.style.display = 'block';
-        countDiv.style.background = '#fff5f5';
-        countDiv.style.color = '#e03131';
-        countDiv.innerHTML = `❌ 어라? 리즈, API 키가 배고픈가 봐요. 다시 확인해줄래? 🧐`;
-        listDiv.innerHTML = '';
-    } finally {
-        searchBtn.disabled = false;
-        window.scrollTo(0, 0);
-    }
-}
-
-// [5] 논문 목록 그리기 함수
-async function renderList(entries) {
-    listDiv.innerHTML = '';
-    
-    const table = document.createElement('table');
-    table.className = 'paper-table';
-    table.innerHTML = `
-        <thead>
-            <tr>
-                <th class="col-journal">Journal</th>
-                <th class="col-title">Title (Click)</th>
-                <th class="col-abstract">Abstract (Smart Search)</th>
-                <th class="col-author">Authors</th>
-                <th class="col-date">Date</th>
-                <th class="col-doi">DOI</th>
-            </tr>
-        </thead>
-        <tbody id="table-body"></tbody>
-    `;
-    listDiv.appendChild(table);
-    const tbody = document.getElementById('table-body');
-
-    for (const item of entries) {
-        const tr = document.createElement('tr');
-        const doi = item['prism:doi'];
-        const title = item['dc:title'] || 'No Title';
-        const paperLink = doi ? `https://doi.org/${doi}` : '#';
-        
-        // 초기 초록 데이터 (Scopus에서 준 것)
-        let initialAbstract = item['dc:description'] || "";
-        const abstractId = `abs-${doi ? doi.replace(/[^a-zA-Z0-9]/g, '') : Math.random().toString(36).substr(2, 9)}`;
-
-        tr.innerHTML = `
-            <td class="col-journal">${item['prism:publicationName'] || 'N/A'}</td>
-            <td class="col-title">
-                <a href="${paperLink}" target="_blank" style="text-decoration: none; color: inherit; font-weight:bold;">${title}</a>
-            </td>
-            <td class="col-abstract">
-                <div id="${abstractId}" class="abstract-text">
-                    ${initialAbstract ? initialAbstract : '<span style="color:#94a3b8; font-style:italic;">데이터 도서관 순회 중... 🔍</span>'}
-                </div>
-            </td>
-            <td>${item['dc:creator'] || 'Unknown'}</td>
-            <td style="text-align:center;">${item['prism:coverDate'] || 'N/A'}</td>
-            <td>${doi ? `<a href="${paperLink}" target="_blank" class="doi-link">🔗 ${doi}</a>` : '-'}</td>
-        `;
-        tbody.appendChild(tr);
-
-        // 만약 처음부터 초록이 없다면 보충 수사 시작!
-        if (!initialAbstract && doi) {
-            fillMissingAbstract(doi, abstractId);
-        }
-    }
-}
-
-// [핵심 로직] 3단계 초록 보충 함수
-async function fillMissingAbstract(doi, elementId) {
-    const targetDiv = document.getElementById(elementId);
-
-    // --- 1단계: Crossref 시도 ---
-    try {
-        const crResponse = await fetch(`https://api.crossref.org/works/${doi}`);
-        if (crResponse.ok) {
-            const crData = await crResponse.json();
-            let crAbs = crData.message.abstract;
-            if (crAbs) {
-                targetDiv.innerHTML = crAbs.replace(/<[^>]*>?/gm, ''); // 태그 제거 후 삽입
-                return; // 찾았으면 종료!
-            }
-        }
-    } catch (e) { console.log("Crossref fail"); }
-
-    // --- 2단계: Semantic Scholar 시도 (Crossref에 없을 때만 실행) ---
-    try {
-        const ssResponse = await fetch(`https://api.semanticscholar.org/graph/v1/paper/DOI:${doi}?fields=abstract`);
-        if (ssResponse.ok) {
-            const ssData = await ssResponse.json();
-            if (ssData.abstract) {
-                targetDiv.innerText = ssData.abstract;
-                return; // 찾았으면 종료!
-            }
-        }
-    } catch (e) { console.log("Semantic Scholar fail"); }
-
-    // --- 3단계: 모두 실패했을 때 ---
-    targetDiv.innerHTML = `<span style="color:#e03131;">😢 모든 도서관을 뒤졌지만 초록을 찾지 못했어요. <br> <a href="https://doi.org/${doi}" target="_blank" style="color:#d63384; font-weight:bold;">[여기]</a>를 눌러 원문 사이트에서 확인해 주세요!</span>`;
-}
-
-
-// [6] 페이징 버튼 그리기 함수
-function renderPagination(total) {
-    const maxPage = Math.ceil(total / itemsPerPage);
-    if (maxPage <= 1) {
-        [pagT, pagB].forEach(el => el.innerHTML = '');
-        return;
-    }
-
-    const navHtml = `
-        <button class="btn-page" id="prevBtn" ${currentPage === 0 ? 'disabled' : ''}>이전</button>
-        <span style="font-weight:bold; color:#d63384;">${currentPage + 1} / ${maxPage}</span>
-        <button class="btn-page" id="nextBtn" ${currentPage >= maxPage - 1 ? 'disabled' : ''}>다음</button>
-    `;
-
-    [pagT, pagB].forEach(el => {
-        el.innerHTML = navHtml;
-        // 버튼 이벤트 연결
-        const pBtn = el.querySelector('#prevBtn');
-        const nBtn = el.querySelector('#nextBtn');
-        
-        if (pBtn) pBtn.onclick = () => { currentPage--; fetchData(); };
-        if (nBtn) nBtn.onclick = () => { currentPage++; fetchData(); };
+// [2] 눈 버튼 기능 (요소가 있을 때만 실행하도록 안전장치!)
+if (eyeBtn && apiKeyInput) {
+    eyeBtn.addEventListener('click', (e) => {
+        e.preventDefault(); 
+        apiKeyInput.type = (apiKeyInput.type === 'password') ? 'text' : 'password';
+        eyeBtn.textContent = (apiKeyInput.type === 'password') ? '👁️' : '🔒';
     });
 }
 
-
-
-
-// [테스트 전용] 버튼 클릭 시 실행되는 함수
-async function runTest() {
-    const inputVal = document.getElementById('testDoiInput').value.trim();
-    const resultDiv = document.getElementById('testResult');
-    
-    if (!inputVal) {
-        alert("테스트할 DOI 주소를 넣어줘, 리즈! 🧐");
-        return;
-    }
-
-    // 1. DOI 번호만 추출 (주소가 통째로 들어와도 OK)
-    const doiOnly = inputVal.replace("https://doi.org/", "");
-    
-    resultDiv.innerHTML = "📡 도서관 연결 중...";
-
-    // 2. 데이터 가져오기 실행
-    const abstract = await getAbstractFromCrossref(doiOnly);
-    
-    // 3. 결과 표시 (HTML 태그 제거 포함)
-    resultDiv.innerHTML = `<strong>결과:</strong><br>${abstract.replace(/<[^>]*>?/gm, '')}`;
+// [3] 검색 버튼 클릭 (요소가 있을 때만 실행!)
+if (searchBtn) {
+    searchBtn.addEventListener('click', async () => {
+        currentKeyword = keywordInput ? keywordInput.value.trim() : "";
+        if (!currentKeyword) {
+            alert("리즈, 검색어를 입력해 줘야 보물을 찾으러 갈 수 있어! 🧐");
+            return;
+        }
+        
+        // 초기화
+        accumulatedPapers.clear();
+        if (listDiv) listDiv.innerHTML = '';
+        
+        await fetchAllData();
+    });
 }
 
-// [핵심 로직] Crossref API 호출 함수
-async function getAbstractFromCrossref(doi) {
+// [4] 데이터 자동 전량 수집 함수
+async function fetchAllData() {
+    const apiKey = apiKeyInput.value.trim();
+    const startYear = document.getElementById('startYear').value;
+    const endYear = document.getElementById('endYear').value;
+
+    if (!apiKey) { alert("API 키를 확인해줄래? 🧐"); return; }
+    localStorage.setItem('elsevier_api_key', apiKey);
+
+    const formattedKeyword = currentKeyword.split(' ').filter(x => x).join(' AND ');
+    let dateQuery = "";
+    if (startYear && endYear) dateQuery = ` AND PUBYEAR AFT ${startYear - 1} AND PUBYEAR BEF ${endYear + 1}`;
+
     try {
-        const response = await fetch(`https://api.crossref.org/works/${doi}`);
-        if (!response.ok) throw new Error("도서관에 정보가 없나 봐요.");
+        searchBtn.disabled = true;
+        countDiv.style.display = 'block';
         
+        let start = 0;
+        const countPerPage = 25; // Scopus 최대 호출 단위
+        
+        // 테이블 뼈대 먼저 생성
+        initTable();
+        const tbody = document.getElementById('table-body');
+
+        while (true) {
+            searchBtn.innerText = `🔍 수집 중... (${start}건 완료)`;
+            
+            const params = new URLSearchParams({
+                query: `TITLE-ABS-KEY(${formattedKeyword})${dateQuery}`,
+                apiKey: apiKey,
+                count: countPerPage,
+                start: start,
+                sort: '-coverDate'
+            });
+            
+            const url = `https://api.elsevier.com/content/search/scopus?${params.toString()}`;
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            
+            if (!response.ok) break;
+
+            const data = await response.json();
+            const results = data['search-results'];
+            const totalFound = parseInt(results['opensearch:totalResults'] || "0");
+            const entries = results['entry'] || [];
+
+            if (entries.length === 0) break;
+
+            // 실시간으로 행 추가 및 Map 저장
+            entries.forEach(paper => {
+                const paperId = paper['prism:doi'] || paper['dc:title'] || Math.random().toString(36).substr(2, 9);
+                if (!accumulatedPapers.has(paperId)) {
+                    accumulatedPapers.set(paperId, paper);
+                    appendRow(paper, tbody); 
+                }
+            });
+
+            countDiv.innerHTML = `✨ <strong>리즈님, 보물을 찾았습니다!</strong> (총 ${totalFound}건 중 ${accumulatedPapers.size}건 수집 중)`;
+
+            start += countPerPage;
+            // 탈출 조건: 다 가져왔거나 API 안정성을 위해 500건에서 일단 제한 (필요시 조절)
+            if (start >= totalFound || start >= 500) break;
+
+            // API 부하 방지용 짧은 휴식
+            await new Promise(r => setTimeout(r, 200));
+        }
+
+        searchBtn.innerText = "보물 탐사 완료! 🚀";
+        addControls(); // 다운로드 및 AI 버튼 추가
+
+    } catch (err) {
+        console.error(err);
+        countDiv.innerHTML = `❌ API 연결 오류 발생!`;
+    } finally {
+        searchBtn.disabled = false;
+    }
+}
+
+// [4] 테이블 뼈대 초기화 (Journal / Info / Abstract)
+function initTable() {
+    listDiv.innerHTML = `
+        <table class="paper-table" style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+            <thead style="background:#f1f5f9; position:sticky; top:0; z-index:10; font-size:0.85rem;">
+                <tr>
+                    <th style="width:15%; padding:12px; border-bottom:2px solid #ddd; text-align:left; color:#475569;">Journal</th>
+                    <th style="width:40%; padding:12px; border-bottom:2px solid #ddd; text-align:left; color:#475569;">Title / DOI / Date</th>
+                    <th style="width:45%; padding:12px; border-bottom:2px solid #ddd; text-align:left; color:#475569;">Abstract</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    `;
+}
+
+// [5] 실시간 행 추가 (DOI 유무에 따른 안내 문구 차별화)
+function appendRow(item, tbody) {
+    const tr = document.createElement('tr');
+    const doi = item['prism:doi'];
+    const title = item['dc:title'] || 'No Title';
+    const date = item['prism:coverDate'] || 'N/A';
+    const journal = item['prism:publicationName'] || 'N/A';
+    
+    // Scopus 기본 데이터 확인
+    const initialAbs = item['dc:description'] || item['abstract'] || "";
+    
+    const abstractId = `abs-${doi ? doi.replace(/[^a-zA-Z0-9]/g, '') : Math.random().toString(36).substr(2, 9)}`;
+
+    tr.innerHTML = `
+        <td style="padding:15px; border-bottom:1px solid #eee; vertical-align:top; font-size:0.8rem; color:#64748b; word-break:break-word;">
+            ${journal}
+        </td>
+        <td style="padding:15px; border-bottom:1px solid #eee; vertical-align:top; word-break:break-word;">
+            <div style="font-weight:bold; color:#1e293b; font-size:0.9rem; margin-bottom:8px; line-height:1.4;">${title}</div>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                ${doi 
+                    ? `<a href="https://doi.org/${doi}" target="_blank" style="font-size:0.75rem; color:#6c5ce7; text-decoration:none;">🔗 DOI: ${doi}</a>` 
+                    : `<span style="font-size:0.75rem; color:#f87171; font-style:italic;">🚫 DOI 정보 없음</span>`}
+                <span style="font-size:0.75rem; color:#94a3b8; font-weight:500;">📅 날짜: ${date}</span>
+            </div>
+        </td>
+        <td style="padding:15px; border-bottom:1px solid #eee; vertical-align:top;">
+            <div id="${abstractId}" 
+                 contenteditable="true"
+                 style="font-size:0.85rem; color:#475569; max-height:150px; min-height:80px; overflow-y:auto; line-height:1.6; word-break:break-word; border:1px solid #e2e8f0; padding:10px; border-radius:8px; background:white; outline:none;"
+                 oninput="updateMapData('${doi || title}', this.innerText)">
+                ${initialAbs 
+                    ? initialAbs 
+                    : (doi 
+                        ? '🔍 외부 데이터 탐색 중...' 
+                        : '⚠️ DOI 미제공으로 초록을 검색할 수 없습니다. 😢')}
+            </div>
+        </td>
+    `;
+    tbody.appendChild(tr);
+
+    // DOI가 있을 때만 탐사대 출발!
+    if (!initialAbs && doi) {
+        fillMissingAbstract(doi, abstractId);
+    }
+}
+
+// [7] 3단계 초록 수집 (데이터를 못 찾으면 innerText에 안내 문구 삽입)
+async function fillMissingAbstract(doi, abstractId) {
+    const apiKey = apiKeyInput.value.trim();
+    let finalAbs = "";
+    const displayDiv = document.getElementById(abstractId);
+
+    // 1. Elsevier
+    try {
+        const res = await fetch(`https://api.elsevier.com/content/abstract/doi/${doi}?apiKey=${apiKey}&httpAccept=application/json`);
+        if (res.ok) {
+            const data = await res.json();
+            finalAbs = data['abstracts-view']?.['coredata']?.['dc:description'] || "";
+        }
+    } catch (e) { console.warn("Elsevier 실패"); }
+
+    // 2. Crossref (데이터 부족 시)
+    if (!finalAbs || finalAbs.length < 10) {
+        try {
+            const res = await fetch(`https://api.crossref.org/works/${doi}`);
+            if (res.ok) {
+                const data = await res.json();
+                finalAbs = (data.message?.abstract || "").replace(/<[^>]*>/g, "").replace("Abstract", "").trim();
+            }
+        } catch (e) { console.warn("Crossref 실패"); }
+    }
+
+    // 3. OpenAlex (마지막 보루)
+    if (!finalAbs || finalAbs.length < 10) {
+        try {
+            const res = await fetch(`https://api.openalex.org/works/https://doi.org/${doi}`);
+            if (res.ok) {
+                const data = await res.json();
+                const index = data.abstract_inverted_index;
+                if (index) {
+                    let tempArray = [];
+                    for (const [word, positions] of Object.entries(index)) {
+                        positions.forEach(pos => { tempArray[pos] = word; });
+                    }
+                    finalAbs = tempArray.join(" ");
+                }
+            }
+        } catch (e) { console.warn("OpenAlex 실패"); }
+    }
+
+    // --- [화면 반영 핵심 로직] ---
+    if (displayDiv) {
+        if (finalAbs && finalAbs.length > 10) {
+            // 데이터를 찾았다면? 해당 내용을 innerText로 채워줍니다.
+            displayDiv.innerText = finalAbs;
+            displayDiv.style.color = "#475569";
+            displayDiv.style.fontStyle = "normal";
+
+            // Map 업데이트
+            if (accumulatedPapers.has(doi)) {
+                let paper = accumulatedPapers.get(doi);
+                paper['dc:description'] = finalAbs;
+                accumulatedPapers.set(doi, paper);
+            }
+        } else {
+            // 진짜 못 찾았다면? 리즈님 요청대로 "초록 정보를 찾을 수 없습니다"를 innerText로 넣어버립니다!
+            displayDiv.innerText = "초록 정보를 찾을 수 없습니다. (직접 입력 요망) 😢";
+            displayDiv.style.color = "#f87171"; // 빨간색으로 경고!
+            displayDiv.style.fontStyle = "italic";
+        }
+    }
+}
+
+// Map 업데이트용 헬퍼 함수 (필요시 추가)
+function updateMapData(id, val) {
+    if (accumulatedPapers.has(id)) {
+        let paper = accumulatedPapers.get(id);
+        paper['dc:description'] = val;
+        accumulatedPapers.set(id, paper);
+    }
+}
+
+// [8] 하단 컨트롤 버튼 (CSV & AI 결과창)
+function addControls() {
+    const controls = document.createElement('div');
+    controls.style = "text-align:right; margin-top:20px; padding:20px; background:#f8f9fa; border-radius:12px;";
+    controls.innerHTML = `
+        <button onclick="downloadCSV()" style="background:#2ecc71; color:white; padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin-right:10px;">📥 Download CSV</button>
+    `;
+    listDiv.appendChild(controls);
+}
+
+// [기타 기능: CSV 다운로드, AI 분석]
+function downloadCSV() {
+    const allData = Array.from(accumulatedPapers.values());
+    let csvContent = "\ufeffJournal,Title,Date,DOI,Abstract\n";
+    allData.forEach(item => {
+        const row = [
+            `"${(item['prism:publicationName'] || '').replace(/"/g, '""')}"`,
+            `"${(item['dc:title'] || '').replace(/"/g, '""')}"`,
+            `"${item['prism:coverDate'] || ''}"`,
+            `"${item['prism:doi'] || ''}"`,
+            `"${(item['dc:description'] || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`
+        ];
+        csvContent += row.join(",") + "\n";
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Liz_Research_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+}
+
+function closeAiModal() { document.getElementById('ai-modal').style.display = 'none'; }
+
+async function executeAiAnalysis() {
+    const aiKey = "";
+    const promptInput = document.getElementById('ai-prompt-input').value;
+    
+    if (!promptInput) { alert("질문을 입력해 주세요!"); return; }
+
+    insightDiv.style.display = 'block';
+    insightDiv.innerHTML = `<div style="padding:20px; color:#6c5ce7;">🤖 <b>Gemini가 ${accumulatedPapers.size}건의 논문을 분석 중입니다...</b></div>`;
+    closeAiModal();
+
+    const papersContext = Array.from(accumulatedPapers.values())
+        .map((p, idx) => `[${idx+1}] ${p['dc:title']}: ${p['dc:description']}`).join("\n\n");
+
+    try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${aiKey}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: `사용자 질문: ${promptInput}\n\n논문 데이터:\n${papersContext}` }] }]
+            })
+        });
+
         const data = await response.json();
-        
-        // Crossref는 초록을 'abstract' 필드에 담아줍니다.
-        return data.message.abstract || "초록 정보를 찾을 수 없습니다.";
-    } catch (error) {
-        console.error("Crossref 호출 에러:", error);
-        return "데이터 로드 실패 (DOI 번호를 다시 확인해줘!)";
+        const result = data.candidates[0].content.parts[0].text;
+
+        insightDiv.innerHTML = `
+            <div style="padding:25px; border:2px solid #6c5ce7; border-radius:15px; background:white;">
+                <h3 style="color:#6c5ce7; margin-top:0;">✨ AI Insight Result</h3>
+                <div style="white-space: pre-wrap; line-height:1.7;">${result}</div>
+            </div>
+        `;
+        insightDiv.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        insightDiv.innerHTML = `<div style="color:red;">❌ 분석 실패: ${e.message}</div>`;
     }
 }

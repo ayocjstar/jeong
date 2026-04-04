@@ -5,88 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>For Liz - Research Hub</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* 화면 분할 핵심 스타일 */
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Pretendard', sans-serif; }
+        .split-container { display: flex; width: 100vw; height: 100vh; }
+        
+        /* 왼쪽: 기존 논문 서치 섹션 */
+        .left-panel {
+            flex: 1;
+            padding: 25px;
+            overflow-y: auto;
+            border-right: 2px solid #e2e8f0;
+            background-color: #ffffff;
+        }
+
+        /* 오른쪽: AI 분석 결과 섹션 */
+        .right-panel {
+            flex: 1;
+            padding: 25px;
+            background-color: #f8fafc;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title { font-size: 1.2rem; font-weight: bold; color: #1e293b; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 5px; font-weight: 600; }
+        
+        /* 기존 스타일 유지용 클래스 */
+        .small-input { width: 100%; padding: 10px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+        .row-inputs { display: flex; gap: 10px; }
+        
+        /* AI 결과창 (보라색 포인트) */
+        #ai-intelligent-insight {
+            flex: 1;
+            background: white;
+            border: 2px solid #6c5ce7;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.05);
+            overflow-y: auto;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .btn-main-search { width: 100%; background: #1e293b; color: white; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 1rem; margin: 20px 0; transition: 0.2s; }
+        .btn-main-search:hover { background: #334155; }
+        .btn-ai-trigger { background: #6c5ce7; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    </style>
 </head>
 <body>
 
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>For Liz 💖</h1>
-        </div>
-        <div class="nav-item active">🔎 1. 논문 서치</div>
-        <div class="nav-item" onclick="alert('AI 분석 기능 준비 중입니다!')">🤖 2. AI 결과</div>
-        <a href="https://notebooklm.google.com/" target="_blank" class="nav-item">📓 3. Notebook LM</a>
-    </div>
-
-    <div class="main-content">
-        <div class="container">
-    <h2 style="color:var(--primary); margin-top:0; font-size: 1.5rem;">✨ Liz's Research Station</h2>
-    
-    <div class="setup-grid">
+<div class="split-container">
+    <div class="left-panel">
+        <div class="section-title">🔬 1. Elsevier Scopus Search</div>
         
-        <div class="setup-section">
-            <div class="section-title">🔬 1. Elsevier Scopus</div>
-            <div class="input-item">
-                <label>API Key</label>
-                <div class="pw-wrapper">
-                    <input type="password" id="apiKey" class="small-input" style="width:100%" placeholder="Key">
-                    <button type="button" class="toggle-small" id="eyeBtn">👁️</button>
-                </div>
-            </div>
-            <div class="input-item">
-                <label>검색 키워드</label>
-                <input type="text" id="keyword" class="small-input" placeholder="주제 입력">
-            </div>
-            <div class="input-item">
-                <label>검색 기간 (Year)</label>
-                <div class="row-inputs">
-                    <input type="number" id="startYear" class="small-input" placeholder="From">
-                    <input type="number" id="endYear" class="small-input" placeholder="To">
-                </div>
+        <div class="input-group">
+            <label>Scopus API Key</label>
+            <input type="password" id="apiKey" class="small-input" placeholder="API 키를 입력하세요">
+        </div>
+
+        <div class="input-group">
+            <label>검색 키워드</label>
+            <input type="text" id="keyword" class="small-input" value="AI FOMO" placeholder="주제 입력">
+        </div>
+
+        <div class="input-group">
+            <label>검색 기간 (Year)</label>
+            <div class="row-inputs">
+                <input type="number" id="startYear" class="small-input" placeholder="From (YYYY)">
+                <input type="number" id="endYear" class="small-input" placeholder="To (YYYY)">
             </div>
         </div>
 
-        <div class="setup-section">
-            <div class="section-title">🤖 2. AI Intelligent</div>
-            <div class="row-inputs" style="align-items: flex-end;">
-                <div class="input-item" style="flex:1">
-                    <label>AI Model</label>
-                    <select id="aiModel" class="small-select">
-                        <option value="gemini">Gemini (Google)</option>
-                        <option value="gpt">ChatGPT (OpenAI)</option>
-                    </select>
-                </div>
-                <div class="input-item" style="flex:2">
-                    <label>AI API Key</label>
-                    <input type="password" id="aiKey" class="small-input" placeholder="AI Key">
-                </div>
-            </div>
-            <div class="input-item">
-                <label>Research Question (max 50자)</label>
-                <input type="text" id="resQuestion" class="small-input" maxlength="50" placeholder="핵심 질문을 입력하세요">
-            </div>
-        </div>
-
-        <div class="setup-section">
-            <div class="section-title">📓 3. Notebook LM</div>
-            <div class="input-item">
-                <label>Notebook LM API Key</label>
-                <input type="password" id="noteKey" class="small-input" placeholder="Notebook Key">
-            </div>
-            <p style="font-size: 0.75rem; color: #94a3b8; margin: 5px 0;">* 소스 요약 및 팟캐스트 생성용</p>
-        </div>
-    </div>
-
-    <div class="search-area">
         <button class="btn-main-search" id="searchBtn">보물 탐사 시작하기! 🚀</button>
+
+        <div id="result-count" style="margin-top: 20px; font-weight: bold; color: #6c5ce7;"></div>
+        <div id="pagination-top" class="pagination" style="margin: 10px 0;"></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <div id="paper-list">
+            </div>
     </div>
 
-    <div id="result-count"></div>
-    <div id="pagination-top" class="pagination"></div>
-    <div id="paper-list"></div>
-    <div id="pagination-bottom" class="pagination"></div>
+    <div class="right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="section-title" style="color: #6c5ce7; margin-bottom: 0;">🤖 AI Intelligent Insight</div>
+            <button class="btn-ai-trigger" onclick="openAiModal()">AI 분석 요청</button>
+        </div>
+
+        <div class="row-inputs" style="margin-bottom: 15px;">
+            <div style="flex: 1;">
+                <label style="font-size: 0.75rem; color: #94a3b8;">Model</label>
+                <select id="aiModel" style="width:100%; border:1px solid #ddd; border-radius:5px; padding:3px;">
+                    <option value="gemini">Gemini (Google)</option>
+                    <option value="gpt">ChatGPT (OpenAI)</option>
+                </select>
+            </div>
+            <div style="flex: 2;">
+                <label style="font-size: 0.75rem; color: #94a3b8;">AI API Key</label>
+                <input type="password" id="aiKey" style="width:100%; border:1px solid #ddd; border-radius:5px; padding:3px;" placeholder="AI Key">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Research Question</label>
+            <input type="text" id="resQuestion" class="small-input" maxlength="50" placeholder="핵심 질문을 입력하세요">
+        </div>
+
+        <div id="ai-intelligent-insight">
+            <p style="color:#94a3b8; text-align:center; margin-top:100px;">
+                논문 검색 후 [AI 분석 요청] 버튼을 눌러주세요.
+            </p>
         </div>
     </div>
+</div>
 
-    <script src="script.js"></script>
+<div id="ai-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:30px; border-radius:20px; box-shadow:0 10px 50px rgba(0,0,0,0.3); z-index:2000; width:420px;">
+    <h3 style="color:#6c5ce7; margin-top:0;">🤖 무엇을 분석해 드릴까요?</h3>
+    <textarea id="ai-prompt-input" style="width:100%; height:120px; border:1.5px solid #ddd; border-radius:10px; padding:12px; margin-bottom:15px; resize:none; font-family: inherit;">검색된 논문들의 핵심 트렌드를 분석해주고, 리즈의 연구 질문에 대한 해답을 요약해줘.</textarea>
+    <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button onclick="closeAiModal()" style="background:#eee; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">취소</button>
+        <button onclick="executeAiAnalysis()" style="background:#6c5ce7; color:white; border:none; padding:10px 25px; border-radius:8px; cursor:pointer; font-weight:bold;">분석 시작</button>
+    </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
