@@ -3,63 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elsevier 논문 검색기</title>
-    <style>
-        :root { --primary: #007396; --bg: #f4f7f9; }
-        body { font-family: 'Malgun Gothic', sans-serif; background: var(--bg); padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
-        h2 { color: var(--primary); text-align: center; margin-bottom: 25px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        
-        .setup-card { background: #fdfdfd; padding: 20px; border: 1px solid #e1e4e8; border-radius: 10px; margin-bottom: 20px; }
-        .input-group { position: relative; margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; color: #444; font-size: 0.9em; }
-        
-        input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        
-        /* 눈 버튼 스타일: 입력창 안쪽에 고정 */
-        .toggle-password {
-            position: absolute; right: 10px; top: 32px; /* 위치 조정 */
-            background: none; border: none; cursor: pointer; font-size: 18px; color: #777;
-            padding: 5px; z-index: 10;
-        }
-        
-        .btn-search { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.3s; }
-        .btn-search:hover { background: #005a75; }
-        .btn-search:disabled { background: #ccc; }
-
-        .pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin: 20px 0; }
-        .btn-page { padding: 8px 15px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 4px; }
-        
-        .paper-card { padding: 15px; border-bottom: 1px solid #eee; }
-        .paper-title { font-weight: bold; color: #1a0dab; text-decoration: none; margin-bottom: 5px; display: block; }
-        #result-count { padding: 10px; font-weight: bold; border-radius: 5px; margin-bottom: 10px; display: none; background: #e7f3ff; color: #0056b3; }
-    </style>
+    <title>For Liz - Research Hub</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="container">
-    <h2>🔬 Elsevier Scopus 검색기</h2>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>For Liz 💖</h1>
+        </div>
+        <div class="nav-item active">🔎 1. 논문 서치</div>
+        <div class="nav-item" onclick="alert('AI 분석 기능 준비 중입니다!')">🤖 2. AI 결과</div>
+        <a href="https://notebooklm.google.com/" target="_blank" class="nav-item">📓 3. Notebook LM</a>
+    </div>
 
-    <div class="setup-card">
-        <div class="input-group">
-            <label>1. API Key (보안)</label>
-            <input type="password" id="apiKey" placeholder="API 키를 입력하세요">
-            <button type="button" class="toggle-password" id="eyeBtn">👁️</button>
-        </div>
+    <div class="main-content">
+        <div class="container">
+    <h2 style="color:var(--primary); margin-top:0; font-size: 1.5rem;">✨ Liz's Research Station</h2>
+    
+    <div class="setup-grid">
         
-        <div class="input-group">
-            <label>2. 검색어</label>
-            <input type="text" id="keyword" placeholder="주제 키워드 입력">
+        <div class="setup-section">
+            <div class="section-title">🔬 1. Elsevier Scopus</div>
+            <div class="input-item">
+                <label>API Key</label>
+                <div class="pw-wrapper">
+                    <input type="password" id="apiKey" class="small-input" style="width:100%" placeholder="Key">
+                    <button type="button" class="toggle-small" id="eyeBtn">👁️</button>
+                </div>
+            </div>
+            <div class="input-item">
+                <label>검색 키워드</label>
+                <input type="text" id="keyword" class="small-input" placeholder="주제 입력">
+            </div>
+            <div class="input-item">
+                <label>검색 기간 (Year)</label>
+                <div class="row-inputs">
+                    <input type="number" id="startYear" class="small-input" placeholder="From">
+                    <input type="number" id="endYear" class="small-input" placeholder="To">
+                </div>
+            </div>
         </div>
-        <button class="btn-search" id="searchBtn">논문 찾아와! (Fetch for Liz) 🔍</button>
+
+        <div class="setup-section">
+            <div class="section-title">🤖 2. AI Intelligent</div>
+            <div class="row-inputs" style="align-items: flex-end;">
+                <div class="input-item" style="flex:1">
+                    <label>AI Model</label>
+                    <select id="aiModel" class="small-select">
+                        <option value="gemini">Gemini (Google)</option>
+                        <option value="gpt">ChatGPT (OpenAI)</option>
+                    </select>
+                </div>
+                <div class="input-item" style="flex:2">
+                    <label>AI API Key</label>
+                    <input type="password" id="aiKey" class="small-input" placeholder="AI Key">
+                </div>
+            </div>
+            <div class="input-item">
+                <label>Research Question (max 50자)</label>
+                <input type="text" id="resQuestion" class="small-input" maxlength="50" placeholder="핵심 질문을 입력하세요">
+            </div>
+        </div>
+
+        <div class="setup-section">
+            <div class="section-title">📓 3. Notebook LM</div>
+            <div class="input-item">
+                <label>Notebook LM API Key</label>
+                <input type="password" id="noteKey" class="small-input" placeholder="Notebook Key">
+            </div>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin: 5px 0;">* 소스 요약 및 팟캐스트 생성용</p>
+        </div>
+    </div>
+
+    <div class="search-area">
+        <button class="btn-main-search" id="searchBtn">보물 탐사 시작하기! 🚀</button>
     </div>
 
     <div id="result-count"></div>
     <div id="pagination-top" class="pagination"></div>
     <div id="paper-list"></div>
     <div id="pagination-bottom" class="pagination"></div>
-</div>
+        </div>
+    </div>
 
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
